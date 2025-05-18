@@ -15,6 +15,7 @@ class Player extends schema.Schema {
         this.vy = 0;
         this.vz = 0;
         this.rotation = 0;
+        this.vibe = "";
         this.color = `#${Math.floor(Math.random() * 16777215).toString(16)}`; // Couleur aléatoire
     }
 }
@@ -33,6 +34,7 @@ schema.defineTypes(Player, {
     vy: "number",
     vz: "number",
     rotation: "number",
+    vibe: "string",
     color: "string",
 });
 

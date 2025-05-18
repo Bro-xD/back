@@ -66,7 +66,6 @@ class RefugeRoom extends Room {
         try {
             const refuge = await db.Refuge.findOne({ where: { userId } });
             if (!refuge) throw new Error("Refuge non trouvé");
-            const elements = await db.RefugeElement.findAll({ where: { refugeId: refuge.id } });
 
             // Initialiser refuge dans l'état
             this.state.refuge = new Refuge({
@@ -81,21 +80,6 @@ class RefugeRoom extends Room {
                 story: refuge.story,
                 backgroundUrl: refuge.backgroundUrl,
             });
-
-            // Initialiser elements dans l'état
-            /*elements.forEach((element) => {
-                this.state.elements.push(
-                    new RefugeElement(
-                        element.id,
-                        element.type,
-                        element.value,
-                        element.positionX,
-                        element.positionY,
-                        element.positionZ,
-                        element.size
-                    )
-                );
-            });*/
         } catch (error) {
             console.error("❌ Erreur lors du chargement du refuge :", error);
         }
@@ -104,11 +88,12 @@ class RefugeRoom extends Room {
     async onJoin(client, options) {
         const userId = options.currentUserId;
         try {
-            const user = await db.User.findOne({ where: { id: userId } });
+            const user = await db.User.findOne({ where: { id: userId }, include: [db.Refuge] });
             if (!user) throw new Error("Utilisateur non trouvé");
 
             const player = new Player(client.sessionId, userId, user.username, userId === this.state.refugeId);
             player.avatarConfig = user.avatarConfig;
+            player.vibe = user.Refuge.emotion;
             this.state.players.set(client.sessionId, player);
 
             console.log(`👤 Joueur ${client.sessionId} (${player.username}) rejoint la Refuge Room ${this.state.refugeId}`);

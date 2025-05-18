@@ -2,6 +2,8 @@
 const express = require("express");
 const { User, Refuge } = require("../models");
 
+const { Sequelize, Op } = require('sequelize');
+
 const router = express.Router();
 
 // Route de test
@@ -47,20 +49,102 @@ router.post("/users", async (req, res) => {
 
 // POST /api/design — enregistre ou met à jour
 router.post('/design', async (req, res) => {
-  const { userId, elements, background, track } = req.body;
+    const { userId, elements, background, soundUrl } = req.body;
 
-  try {
-    // Crée un nouveau Refuge ou remplace l'existant pour cet user
-    let refuge = await Refuge.findOne({ where: { userId } });
-    if (refuge) {
-      refuge = await refuge.update({ elements, background, track });
-    } else {
-      refuge = await Refuge.create({ userId, elements, background, track });
+    try {
+        // Crée un nouveau Refuge ou remplace l'existant pour cet user
+        let refuge = await Refuge.findOne({ where: { userId } });
+        if (refuge) {
+            refuge = await refuge.update({ elements, background, soundUrl });
+        } else {
+            refuge = await Refuge.create({ userId, elements, background, soundUrl });
+        }
+        res.json(refuge);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
-    res.json(refuge);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+});
+
+router.get('/reaction/:refugeId', async (req, res) => {
+    const { refugeId } = req.params;
+    try {
+        const refuge = await Refuge.findOne({ where: { id: refugeId } });
+        if (!refuge) {
+            return res.status(404).json({ error: "Refuge not found" });
+        }
+
+        res.json(refuge.reactions);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+
+router.get('/refuges/top', async (req, res) => {
+    try {
+        // Récupérer tous les refuges avec les utilisateurs associés
+        const refuges = await Refuge.findAll({
+            attributes: ['id', 'title', 'reactions'], // Limiter les champs récupérés
+            include: [
+                {
+                    model: User,
+                    attributes: ['id', 'username', 'avatarConfig'],
+                }
+            ]
+        })
+
+        // Vérifier si des refuges existent
+        if (!refuges.length) {
+            return res.status(404).json({ message: 'No refuges found' });
+        }
+
+        // Formater et trier dans une boucle
+        const formattedRefuges = refuges
+            .map(refuge => ({
+                id: refuge.id,
+                name: refuge.title,
+                reactionCount: Object.keys(JSON.parse(refuge.reactions) || {}).length, // Compter les réactions
+                reactions: refuge.reactions || {},
+                user: {
+                    id: refuge.User.id,
+                    username: refuge.User.username,
+                    avatarConfig: refuge.User.avatarConfig
+                }
+            }))
+            .sort((a, b) => b.reactionCount - a.reactionCount) // Trier par reactionCount décroissant
+            .slice(0, 3); // Limiter aux 3 premiers
+
+        res.json(formattedRefuges);
+    } catch (err) {
+        console.error('Erreur lors de la récupération des refuges :', err);
+        res.status(500).json({ error: 'Failed to fetch refuges' });
+    }
+});
+
+//sauvegarder une reaction
+router.post('/reaction', async (req, res) => {
+    console.log(req.body);
+    const { emoji, userId, refugeId } = req.body;
+    try {
+        const refuge = await Refuge.findOne({ where: { id: refugeId } });
+        if (!refuge) {
+            return res.status(404).json({ error: "Refuge not found" });
+        }
+
+        let reactions = JSON.parse(refuge.reactions) || {};
+        reactions[userId] = emoji;
+
+        console.log(reactions);
+        refuge.reactions = JSON.stringify(reactions);
+
+        await refuge.save();
+
+        res.json(refuge);
+    } catch (err) {
+        console.error("Erreur lors de la sauvegarde de la reaction :", err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 router.post("/create/refuge", async (req, res) => {

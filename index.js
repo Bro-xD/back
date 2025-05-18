@@ -37,11 +37,13 @@ const PORT = process.env.PORT || 3000;
 db.sequelize.authenticate()
     .then(() => {
         console.log("✅ Connexion à la base de données réussie");
-        return db.sequelize.sync({alter:true});
+        return db.sequelize.sync();
     })
     .then(() => {
         console.log("📦 Base de données synchronisée");
-        gameServer.listen(PORT);
+        gameServer.listen(PORT, {
+            server,
+        });
         console.log(`🚀 Colyseus en écoute sur ws://localhost:${PORT}`);
     })
     .catch((err) => {
